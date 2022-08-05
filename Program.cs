@@ -38,7 +38,7 @@ namespace IngameScript
             if (StandardBatteries == null) { Echo("Battery group not found!"); return; }
             StandardBatteries.GetBlocksOfType(myBatteryBlocks);
 
-            var vehicleState = 0;
+            bool chargeStatus = false;
             float currentStoredPowerAll = 0f;
             float maxStoredPowerAll = 0f;
             float EmBatteryPercent = 0f;
@@ -49,59 +49,74 @@ namespace IngameScript
             }
             float percentStoredPower = currentStoredPowerAll / maxStoredPowerAll;
 
-            // Plans: Invert the below code, section it off into vehicle state checks.
-            
-            if (percentStoredPower >= 0.75 && vehicleState == 0) {
-                // Set E.Battery to Recharge.
-            } else if (percentStoredPower < 0.75 && percentStoredPower >= 0.5 && vehicleState == 0) {
-                // Shut down Oxygen Generators & Vents
-                // Set E.Battery to Recharge.
-            } else if (percentStoredPower <= 0.5 && percentStoredPower >= 0.25 && vehicleState == 0) {
-                // Shut down Antennas, Heat Exchanger, Ore Detectors
-                // Set E.Battery to Recharge.
-            } else if (percentStoredPower <= 0.25 && percentStoredPower >= 0.05 && vehicleState == 0) {
-                // Shut down lights, LCDs, Sensors, gas tanks.
-                // Park if not already parked.
-                // Set E.Battery to Recharge.
-            } else if (percentStoredPower <= 0.05 && EmBatteryPercent >= 0.7 && vehicleState == 0) {
-                // Enable emergency batteries, set batteries to discharge.
-            } else if (percentStoredPower <= 0.05 && EmBatteryPercent <= 0.7 && vehicleState == 0) {
-                // Disable everything except Survival Kit
-            } else if (percentStoredPower <= 0.05 && EmBatteryPercent <= 0.4 && vehicleState == 0) {
-                // Enable Beacon with Custom Name
-            } else if (percentStoredPower <= 0.05 && EmBatteryPercent <= 0.1 && vehicleState == 0) {
-                // Shut down -everything-.
-                // Enable e.battery recharge and battery recharge.
-                // Vehicle state 1.
-            } else if (EmBatteryPercent > 0.9 && percentStoredPower <= 0.3 && vehicleState == 1) {
-                // Set vehicle state 0
+            List<IMyShipController> cockpits = new List<IMyShipController>();
+            GridTerminalSystem.GetBlocksOfType(cockpits);
+            if (cockpits == null) { Echo("There are no cockpits!"); return; }
+            bool underControl = false;
+            foreach (var cockpit in cockpits) {
+                if (cockpit.IsUnderControl) {
+                    underControl = true;
+                    break;
+                }
+            }
+            if (underControl) {
+                Echo("Vehicle is currently under control.");
+                // Set e.battery to recharge
+                // Set batteries to auto
+                // Set gas tanks on
+            } else if (chargeStatus) {
+                if (EmBatteryPercent < 0.9 && percentStoredPower < 0.3) {
+                    Echo("Vehicle is currently in recharge mode.");
+                } else {
+                    chargeStatus = false;
+                }
             } else {
-                Echo("Either someone is driving, or I'm confused.");
+                if (percentStoredPower <= 0.05 && EmBatteryPercent <= 0.1) {
+                    // Shutdown Everything.
+                    // Enable batteries recharge.
+                    chargeStatus = true;
+                    Echo("Emergency Mode: Full system shutdown.");
+                } else if (percentStoredPower <= 0.05 && EmBatteryPercent <= 0.4) {
+                    // Turn Beacon Off
+                    // Reset Beacon Name
+                    Echo("Emergency Mode: System backup power extremely low.");
+                } else if (percentStoredPower <= 0.05 && EmBatteryPercent <= 0.7) {
+                    // Disable everything except survival kit.
+                    // Set Beacon Name to Emergency Mode.
+                    Echo("Emergency Mode: System backup power low.");
+                } else if (percentStoredPower <= 0.05 && EmBatteryPercent > 0.7) { // Potential risk of all false here.
+                    // Enable Emergency Batteries.
+                    // Set Batteries to Discharge.
+                    Echo("System power is extremely low, switching to Emergency battery.");
+                } else if (percentStoredPower <= 0.25 && percentStoredPower > 0.05) {
+                    // Shutdown Lights
+                    // Shutdown LCDs
+                    // Shutdown Sensors
+                    // Shutdown Gas tanks
+                    // Park if not parked
+                    // Set e.bat to Recharge
+                    Echo("System power is low.");
+                } else if (percentStoredPower <= 0.5 && percentStoredPower > 0.25) {
+                    // Shutdown Antennas
+                    // Shutdown Heat Exhcnagers (If they exist)
+                    // Shutdown Ore Detectors
+                    // Set e.bat to Recharge
+                    Echo("System power is reduced.");
+                } else if (percentStoredPower <= 0.75 && percentStoredPower > 0.5) {
+                    // Shutdown Oxygen Generators
+                    // Shutdown Vents
+                    // Set e.bat to Recharge
+                    Echo("System power is nominal.");
+                } else if (percentStoredPower >= 0.75) {
+                    // Set e.bat to Recharge
+                    Echo("System power is great.");
+                } else {
+                    Echo("Something has gone wrong, I will wait for something to change.");
+                }
             }
         }
     }
 }
 
-
-// Block Group: Batteries
-// This group contains 4 batteries.
 // "[1] Emergency Battery" (Will rename if script works)
-// Beacon blinks faster with more power. Add battery percentage to name with up/down arrow for charge/discharge.
-// Group Names: Exterior Lights, Floodlights, Hydrogen Tanks, Wheels
-// Script should be disabled while vehicle is piloted. Setting back to the default state when not piloted.
-
-/*
-List<IMyShipController> cockpits = new List<IMyShipController>();
-GridTerminalSystem.GetBlocksOfType(cockpits);
-
-bool underControl = false;
-
-foreach (var cockpit in cockpits)
-{
-    if (cockpit.IsUnderControl)
-    {
-        underControl = true;
-        break;
-    }
-}
-*/
+// Group Names: Batteries, Exterior Lights, Floodlights, Hydrogen Tanks, Wheels
